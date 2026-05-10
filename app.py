@@ -79,6 +79,22 @@ class DateEncoder(json.JSONEncoder):
 
 app.json_encoder = DateEncoder
 
+# ── Ejecutar init al arrancar (funciona con gunicorn también) ─
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Warning: init_db falló al arrancar: {e}")
+
+# Ruta de emergencia para crear tablas manualmente
+@app.route('/init')
+def ruta_init():
+    try:
+        init_db()
+        return jsonify({'ok': True, 'mensaje': 'Tablas creadas correctamente'})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 # ════════════════════════════════════════════════════════════
 #  EXPEDIENTES
 # ════════════════════════════════════════════════════════════
