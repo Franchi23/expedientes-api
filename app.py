@@ -9,11 +9,11 @@ CORS(app)
 # ── Conexión ──────────────────────────────────────────────────
 def get_conn():
     return mysql.connector.connect(
-        host     = os.environ.get('DB_HOST',     'viaduct.proxy.rlwy.net'),
-        port     = int(os.environ.get('DB_PORT', '34950')),
-        user     = os.environ.get('DB_USER',     'root'),
-        password = os.environ.get('DB_PASS',     'CTsSgPqbAqDHHcFxxXbiCNIBESBcfIOQ'),
-        database = os.environ.get('DB_NAME',     'railway'),
+        host     = os.environ.get('DB_HOST',     'bnljmz5gsmhe9fn1f9c5-mysql.services.clever-cloud.com'),
+        port     = int(os.environ.get('DB_PORT', '3306')),
+        user     = os.environ.get('DB_USER',     'uqfoqapoib9kqyke'),
+        password = os.environ.get('DB_PASS',     'M1Yvwsc3ooLNEJxO7i5y'),
+        database = os.environ.get('DB_NAME',     'bnljmz5gsmhe9fn1f9c5'),
         charset  = 'utf8mb4'
     )
  
