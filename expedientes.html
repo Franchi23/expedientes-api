@@ -141,6 +141,34 @@
   .th-sort { cursor: pointer; user-select: none; }
   .th-sort:hover { color: var(--accent2); }
 
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,17,23,.85);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .loading-overlay.visible { display: flex; }
+  .loading-spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .loading-msg {
+    font-family: var(--mono);
+    font-size: .82rem;
+    color: var(--text2);
+    letter-spacing: .08em;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ── Bottom nav (mobile) ── */
   .bottom-nav {
     display: none;
@@ -273,7 +301,7 @@
         <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value accent" id="stat-total">—</div></div>
         <div class="stat-card"><div class="stat-label">A mi cargo</div><div class="stat-value" id="stat-yo">—</div></div>
         <div class="stat-card"><div class="stat-label">A cargo compañera</div><div class="stat-value" id="stat-comp">—</div></div>
-        <div class="stat-card"><div class="stat-label">Sin fecha devolución</div><div class="stat-value yellow" id="stat-sin-fecha">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pendientes</div><div class="stat-value yellow" id="stat-sin-fecha">—</div></div>
         <div class="stat-card"><div class="stat-label">Devueltos</div><div class="stat-value green" id="stat-devueltos">—</div></div>
       </div>
       <div class="page-header" style="margin-top:8px">
@@ -420,6 +448,12 @@
   </div>
 </div>
 
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-msg" id="loading-msg">Conectando con el servidor…</div>
+</div>
+
 <!-- BOTTOM NAV (mobile) -->
 <nav class="bottom-nav">
   <div class="bottom-nav-inner">
@@ -447,7 +481,7 @@
 <script>
 // ═══ ESTADO ═══
 // URL de la API — ya está configurada, no hace falta tocarla
-const API_URL_DEFAULT = 'RAILWAY_URL_AQUI';
+const API_URL_DEFAULT = 'https://expedientes-paolita.onrender.com';
 let API_URL      = localStorage.getItem('api_url') || API_URL_DEFAULT;
 let expedientes  = [];
 let companeras   = [];
@@ -566,11 +600,21 @@ function actualizarDot(estado, texto) {
 }
 
 // ═══ CARGAR TODO ═══
+function mostrarLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'Conectando con el servidor…';
+  document.getElementById('loading-overlay').classList.add('visible');
+}
+function ocultarLoading() {
+  document.getElementById('loading-overlay').classList.remove('visible');
+}
+
 async function cargarDatos() {
+  mostrarLoading('Conectando con el servidor…');
   const [resExp, resComp] = await Promise.all([
     api('GET', 'listar'),
     api('GET', 'companeras')
   ]);
+  ocultarLoading();
   if (resExp?.ok)  expedientes = resExp.data;
   if (resComp?.ok) companeras  = resComp.data;
   renderDashboard();
@@ -749,8 +793,8 @@ async function editarExpediente(id) {
   document.getElementById('f-nombre').value = e.nombre;
   document.getElementById('f-idcompanera').value = e.idcompanera;
   document.getElementById('f-responsable').value = e.responsable;
-  document.getElementById('f-fecha-asignacion').value = e.fecha_asignacion;
-  document.getElementById('f-fecha-devolucion').value = e.fecha_devolucion || '';
+  document.getElementById('f-fecha-asignacion').value = toInputDate(e.fecha_asignacion);
+  document.getElementById('f-fecha-devolucion').value = toInputDate(e.fecha_devolucion);
   document.getElementById('form-title').textContent = 'Editar expediente';
   document.getElementById('form-sub').textContent   = 'Expediente ' + e.numero;
   document.getElementById('btn-guardar-txt').textContent = 'Actualizar expediente';
@@ -869,7 +913,7 @@ async function marcarDevuelto(id) {
     nombre: e.nombre,
     idcompanera: parseInt(e.idcompanera),
     responsable: parseInt(e.responsable),
-    fecha_asignacion: e.fecha_asignacion,
+    fecha_asignacion: toInputDate(e.fecha_asignacion),
     fecha_devolucion: hoy()
   };
   const resUp = await api('PUT', 'editar', data);
@@ -893,7 +937,7 @@ async function confirmarBorrar() {
   const data = {
     id: e.id, numero: e.numero, nombre: e.nombre,
     idcompanera: parseInt(e.idcompanera), responsable: parseInt(e.responsable),
-    fecha_asignacion: e.fecha_asignacion, fecha_devolucion: e.fecha_devolucion || null,
+    fecha_asignacion: toInputDate(e.fecha_asignacion), fecha_devolucion: e.fecha_devolucion || null,
     borrado: 1
   };
   const res = await api('PUT', 'editar', data);
@@ -910,8 +954,23 @@ function cerrarModal(id) {
 function hoy() { return new Date().toISOString().split('T')[0]; }
 function fmtFecha(f) {
   if (!f) return '—';
-  const [y,m,d] = f.split('-');
-  return d+'/'+m+'/'+y;
+  const d = new Date(f);
+  if (isNaN(d)) return f;
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const yy = d.getUTCFullYear();
+  return dd+'/'+mm+'/'+yy;
+}
+
+function toInputDate(f) {
+  // Convierte cualquier formato de fecha a YYYY-MM-DD para inputs type=date
+  if (!f) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(f)) return f.substring(0,10);
+  const d = new Date(f);
+  if (isNaN(d)) return '';
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  return d.getUTCFullYear()+'-'+mm+'-'+dd;
 }
 function escapar(str) {
   if (!str) return '';
