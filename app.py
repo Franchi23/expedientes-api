@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
 import os
- 
+
 app = Flask(__name__)
 CORS(app)
- 
+
 # ── Conexión ──────────────────────────────────────────────────
 def get_conn():
     return mysql.connector.connect(
@@ -16,7 +16,7 @@ def get_conn():
         database = os.environ.get('DB_NAME',     'bnljmz5gsmhe9fn1f9c5'),
         charset  = 'utf8mb4'
     )
- 
+
 # ── Init tablas ───────────────────────────────────────────────
 def init_db():
     conn = get_conn()
@@ -52,24 +52,24 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
- 
+
 # ── Helpers ───────────────────────────────────────────────────
 def rows_as_dicts(cursor):
     cols = [d[0] for d in cursor.description]
     return [dict(zip(cols, row)) for row in cursor.fetchall()]
- 
+
 def row_as_dict(cursor):
     cols = [d[0] for d in cursor.description]
     row  = cursor.fetchone()
     return dict(zip(cols, row)) if row else None
- 
+
 def serial(obj):
     """Convierte fechas a string para JSON."""
     import datetime
     if isinstance(obj, (datetime.date, datetime.datetime)):
         return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
- 
+
 import json, datetime
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -78,16 +78,24 @@ class DateEncoder(json.JSONEncoder):
         if isinstance(obj, datetime.date):
             return obj.strftime('%Y-%m-%d')
         return super().default(obj)
- 
+
 app.json_encoder = DateEncoder
- 
+
+# ── Servir el HTML en la raíz ────────────────────────────────
+@app.route('/')
+def index():
+    import os
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'expedientes.html')
+    with open(html_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
 # ── Ejecutar init al arrancar (funciona con gunicorn también) ─
 with app.app_context():
     try:
         init_db()
     except Exception as e:
         print(f"Warning: init_db falló al arrancar: {e}")
- 
+
 # Ruta de emergencia para crear tablas manualmente
 @app.route('/init')
 def ruta_init():
@@ -96,11 +104,11 @@ def ruta_init():
         return jsonify({'ok': True, 'mensaje': 'Tablas creadas correctamente'})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
- 
+
 # ════════════════════════════════════════════════════════════
 #  EXPEDIENTES
 # ════════════════════════════════════════════════════════════
- 
+
 @app.route('/expedientes', methods=['GET'])
 def listar_expedientes():
     buscar      = request.args.get('buscar', '')
@@ -124,7 +132,7 @@ def listar_expedientes():
     data = rows_as_dicts(cur)
     cur.close(); conn.close()
     return jsonify(data)
- 
+
 @app.route('/expedientes/<int:eid>', methods=['GET'])
 def obtener_expediente(eid):
     conn = get_conn(); cur = conn.cursor()
@@ -137,7 +145,7 @@ def obtener_expediente(eid):
     cur.close(); conn.close()
     if row: return jsonify(row)
     return jsonify({'error': 'No encontrado'}), 404
- 
+
 @app.route('/expedientes', methods=['POST'])
 def crear_expediente():
     d = request.json
@@ -151,7 +159,7 @@ def crear_expediente():
     eid = cur.lastrowid
     cur.close(); conn.close()
     return jsonify({'id': eid, 'mensaje': 'Expediente creado'}), 201
- 
+
 @app.route('/expedientes/<int:eid>', methods=['PUT'])
 def editar_expediente(eid):
     d = request.json
@@ -166,7 +174,7 @@ def editar_expediente(eid):
     conn.commit()
     cur.close(); conn.close()
     return jsonify({'mensaje': 'Expediente actualizado'})
- 
+
 @app.route('/expedientes/<int:eid>', methods=['DELETE'])
 def eliminar_expediente(eid):
     conn = get_conn(); cur = conn.cursor()
@@ -174,11 +182,11 @@ def eliminar_expediente(eid):
     conn.commit()
     cur.close(); conn.close()
     return jsonify({'mensaje': 'Eliminado'})
- 
+
 # ════════════════════════════════════════════════════════════
 #  COMPAÑERAS
 # ════════════════════════════════════════════════════════════
- 
+
 @app.route('/companeras', methods=['GET'])
 def listar_companeras():
     conn = get_conn(); cur = conn.cursor()
@@ -188,7 +196,7 @@ def listar_companeras():
     data = rows_as_dicts(cur)
     cur.close(); conn.close()
     return jsonify(data)
- 
+
 @app.route('/companeras', methods=['POST'])
 def crear_companera():
     d = request.json
@@ -201,7 +209,7 @@ def crear_companera():
     cid = cur.lastrowid
     cur.close(); conn.close()
     return jsonify({'id': cid, 'mensaje': 'Compañera creada'}), 201
- 
+
 @app.route('/companeras/<int:cid>', methods=['PUT'])
 def editar_companera(cid):
     if cid == 1:
@@ -216,7 +224,7 @@ def editar_companera(cid):
     conn.commit()
     cur.close(); conn.close()
     return jsonify({'mensaje': 'Compañera actualizada'})
- 
+
 @app.route('/companeras/<int:cid>', methods=['DELETE'])
 def eliminar_companera(cid):
     if cid == 1:
@@ -231,7 +239,7 @@ def eliminar_companera(cid):
     conn.commit()
     cur.close(); conn.close()
     return jsonify({'mensaje': 'Compañera eliminada'})
- 
+
 # ════════════════════════════════════════════════════════════
 if __name__ == '__main__':
     init_db()
