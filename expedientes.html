@@ -949,6 +949,7 @@ async function marcarDevuelto(id) {
   const resUp = await api('PUT', 'editar', data);
   if (!resUp?.ok) { toast('Error al guardar la devolución', 'err'); return; }
   toast('Marcado como devuelto ✓', 'ok');
+  await cargarDatos();
   cargarLista();
 }
 
