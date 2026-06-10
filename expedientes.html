@@ -317,10 +317,16 @@
     <div class="page" id="page-lista">
       <div class="page-header">
         <div><div class="page-title">Todos los expedientes</div><div class="page-sub" id="lista-count"></div></div>
-        <button class="btn btn-primary" onclick="navegar('nuevo')">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nuevo
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="navegar('nuevo')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo
+          </button>
+          <button class="btn btn-ghost" id="btn-mostrar-todos" onclick="toggleMostrarTodos()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Todos
+          </button>
+        </div>
       </div>
       <div class="filters">
         <input class="filter-input" type="text" id="filtro-buscar" placeholder="Buscar por número, nombre o compañera…" oninput="filtrarLista()">
@@ -490,6 +496,7 @@ let borrarId     = null;
 let borrarCompId = null;
 let sortCampo    = 'id';
 let sortAsc      = false;
+let mostrarTodos = false;
 
 function ordenarPor(campo) {
   if (sortCampo === campo) sortAsc = !sortAsc;
@@ -554,7 +561,12 @@ function navegar(pagina) {
   document.getElementById('page-' + pagina).classList.add('active');
   document.getElementById('nav-' + pagina)?.classList.add('active');
   document.getElementById('bnav-' + pagina)?.classList.add('active');
-  if (pagina === 'lista')      cargarLista();
+  if (pagina === 'lista') {
+    mostrarTodos = false;
+    const btn = document.getElementById('btn-mostrar-todos');
+    if (btn) { btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; }
+    cargarLista();
+  }
   if (pagina === 'dashboard')  cargarDashboard();
   if (pagina === 'companeras') cargarPaginaCompaneras();
   if (pagina === 'nuevo')      { limpiarFormulario(); poblarSelects(); }
@@ -670,7 +682,7 @@ async function cargarLista() {
 function filtrarLista() { cargarLista(); }
 function renderLista(data) {
   const buscar   = document.getElementById('filtro-buscar').value.trim();
-  const visibles = buscar ? data : data.filter(e => e.borrado != 1);
+  const visibles = (buscar || mostrarTodos) ? data : data.filter(e => e.borrado != 1);
   const sorted   = sortData(visibles);
   document.getElementById('lista-count').textContent = sorted.length + ' expediente' + (sorted.length !== 1 ? 's' : '');
   const tbody = document.getElementById('lista-tbody');
@@ -950,6 +962,22 @@ async function marcarDevuelto(id) {
   if (!resUp?.ok) { toast('Error al guardar la devolución', 'err'); return; }
   toast('Marcado como devuelto ✓', 'ok');
   await cargarDatos();
+  cargarLista();
+}
+
+// ═══ TOGGLE MOSTRAR TODOS ═══
+function toggleMostrarTodos() {
+  mostrarTodos = !mostrarTodos;
+  const btn = document.getElementById('btn-mostrar-todos');
+  if (mostrarTodos) {
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--accent)';
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
   cargarLista();
 }
 
