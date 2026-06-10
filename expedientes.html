@@ -961,21 +961,31 @@ function pedirBorrar(id, numero) {
 }
 async function confirmarBorrar() {
   cerrarModal('modal-borrar');
-  // Soft delete: traer el expediente y guardarlo con borrado=1
+  // Obtener el expediente completo
   const resGet = await api('GET', 'obtener', null, { id: borrarId });
   if (!resGet?.ok) { toast('Error al ocultar', 'err'); return; }
   const e = resGet.data;
-  const data = {
-    id: e.id, numero: e.numero, nombre: e.nombre,
-    idcompanera: parseInt(e.idcompanera), responsable: parseInt(e.responsable),
-    fecha_asignacion: toInputDate(e.fecha_asignacion), fecha_devolucion: e.fecha_devolucion || null,
-    borrado: 1
+  // Guardar con borrado=1 (soft delete)
+  const payload = {
+    id:               parseInt(e.id),
+    numero:           e.numero,
+    nombre:           e.nombre,
+    idcompanera:      parseInt(e.idcompanera),
+    responsable:      parseInt(e.responsable),
+    fecha_asignacion: toInputDate(e.fecha_asignacion),
+    fecha_devolucion: e.fecha_devolucion ? toInputDate(e.fecha_devolucion) : null,
+    borrado:          1
   };
-  const res = await api('PUT', 'editar', data);
-  if (!res?.ok) { toast('Error al ocultar', 'err'); return; }
+  const res = await api('PUT', 'editar', payload);
+  if (!res?.ok) { toast('Error al ocultar: ' + (res?.data?.error || ''), 'err'); return; }
+  // Quitar del array local inmediatamente para que desaparezca sin esperar recarga
+  expedientes = expedientes.filter(ex => ex.id != borrarId);
+  borrarId = null;
+  renderDashboard();
+  renderLista(expedientes);
   toast('Expediente ocultado de la lista', 'ok');
-  await cargarDatos();
-  cargarLista();
+  // Recargar desde servidor en segundo plano
+  cargarDatos();
 }
 function cerrarModal(id) {
   document.getElementById(id).classList.remove('open');
